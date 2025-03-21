@@ -5,6 +5,13 @@ import { useAuth } from "../hooks/useAuth";
 import { config } from "../config";
 
 export default function Home() {
+  // Debug logging for config values
+  console.log('Config values:', {
+    spotifyClientId: config.spotifyClientId,
+    frontendUrl: config.frontendUrl,
+    backendUrl: config.backendUrl
+  });
+
   const CLIENT_ID = config.spotifyClientId;
   const REDIRECT_URI = encodeURIComponent(`${config.frontendUrl}/discover`);
   const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";

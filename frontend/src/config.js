@@ -1,5 +1,13 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// Debug logging
+console.log('Environment Variables:', {
+  NODE_ENV: process.env.NODE_ENV,
+  REACT_APP_FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL,
+  REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
+  REACT_APP_SPOTIFY_CLIENT_ID: process.env.REACT_APP_SPOTIFY_CLIENT_ID
+});
+
 // Base URLs
 const DEV_FRONTEND_URL = 'http://localhost:3000';
 const DEV_BACKEND_URL = 'http://localhost:5000';

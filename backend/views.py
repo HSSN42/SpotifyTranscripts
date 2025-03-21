@@ -1,86 +1,153 @@
-from crypt import methods
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, make_response
+from flask_cors import cross_origin
 from . import db
 from .models import Podcast
 import os 
-import speech_recognition as sr 
 import requests
-import librosa
+import json
 from pydub import AudioSegment
-from pydub.silence import split_on_silence
+import openai
+import tempfile
 
 main = Blueprint("main", __name__)
 
+@main.route("/")
+@cross_origin()
+def index():
+    return jsonify({
+        "status": "success",
+        "message": "Welcome to Spotify Transcripts API",
+        "endpoints": {
+            "GET /": "This help message",
+            "GET /get_podcast?url=<url>": "Get transcript for a podcast episode"
+        }
+    })
+
 @main.route("/podcasts")
+@cross_origin()
 def podcasts():
-    podcasts_list = Podcast.query.all()
-    podcasts = []
-    for podcast in podcasts_list:
-        podcasts.append({"url": podcast.url, "transcript": podcast.transcript})
-    return jsonify({"podcasts": podcasts})
+    try:
+        podcasts_list = Podcast.query.all()
+        podcasts = []
+        for podcast in podcasts_list:
+            podcasts.append({"url": podcast.url, "transcript": podcast.transcript})
+        return jsonify({"podcasts": podcasts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@main.route("/get_podcast", methods=["GET"])
+@main.route("/get_podcast", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_podcast():
-    url = request.args.get("url")
-    podcast_list = Podcast.query.all()
-    podcasts = []
-    for podcast in podcast_list:
-        podcasts.append({"url": podcast.url, "transcript": podcast.transcript})
-    
-    for podcast in podcast_list:
-        if podcast.url == url:
-            return podcast.transcript, 201
-    
-    return transcribe_from_url(url), 201
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "*")
+        response.headers.add("Access-Control-Allow-Methods", "*")
+        return response
 
+    try:
+        url = request.args.get("url")
+        if not url:
+            return jsonify({"error": "URL parameter is required"}), 400
 
-r = sr.Recognizer()
+        # Check if podcast exists in database
+        existing_podcast = Podcast.query.filter_by(url=url).first()
+        if existing_podcast and existing_podcast.transcript:
+            return jsonify({
+                "transcript": json.loads(existing_podcast.transcript),
+                "cached": True
+            })
+
+        # Transcribe the podcast
+        transcript = transcribe_from_url(url)
+        
+        # Save to database
+        new_podcast = Podcast(
+            url=url,
+            transcript=json.dumps(transcript)
+        )
+        db.session.add(new_podcast)
+        db.session.commit()
+
+        return jsonify({
+            "transcript": transcript,
+            "cached": False
+        })
+    except Exception as e:
+        print("Error in get_podcast:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+def download_audio(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            downloads_dir = "downloads"
+            ensure_directory_exists(downloads_dir)
+            audio_path = os.path.join(downloads_dir, "temp_audio.mp3")
+            with open(audio_path, "wb") as f:
+                f.write(response.content)
+            return audio_path
+    except Exception as e:
+        print(f"Error downloading audio: {str(e)}")
+        return None
 
 def transcribe_from_url(url):
+    try:
+        # Download the audio file
+        audio_path = download_audio(url)
+        if not audio_path:
+            raise Exception("Failed to download audio file")
 
-
-    downloaded_obj = requests.get(url)
-  
-    with open("podcast.mp3", "wb") as file:
-        file.write(downloaded_obj.content)
-    AudioSegment.from_mp3("podcast.mp3").export("podcast.wav", format="wav") # converts mp3 to wav
- 
-    transcript = ""
-    startTime = 0.000
-    sound = AudioSegment.from_wav("podcast.wav") 
-    chunks = split_on_silence(sound,
-        min_silence_len = 500, 
-        silence_thresh = sound.dBFS-14,
-        keep_silence= 500,
-    )
-
-    folder_name = "backend/audio-chunks"
-
-    if not os.path.isdir(folder_name):
-        os.mkdir(folder_name)
-
-    for i, audio_chunk in enumerate(chunks, start=1):
-        chunk_filename = os.path.join(folder_name, f"chunk{i}.wav")
-        audio_chunk.export(chunk_filename, format="wav")
+        # Load the audio file
+        audio = AudioSegment.from_mp3(audio_path)
         
-        with sr.AudioFile(chunk_filename) as source:
-            audio_listened = r.record(source)
-            try:
-                sentence = r.recognize_google(audio_listened)
-                print("sentence: " + sentence)
-            except sr.UnknownValueError as e:
-                print("Error:", str(e))
-                
-            else:
-                sentence = f"{sentence.capitalize()}. "
-                duration =  librosa.get_duration(filename=chunk_filename)
-                endTime = startTime + duration
-                transcript += "startTime: " + str(startTime) + ";endTime: " + str(endTime) + ";sentence: " + sentence
-                startTime += duration
-    
-    # cleanup
-    os.remove("podcast.mp3") 
-    os.remove("podcast.wav") 
-    
-    print(transcript)
-    return transcript
+        # Initialize transcript segments list
+        transcript_segments = []
+        chunk_length = 30000  # 30 seconds
+        
+        # Create a temporary directory for chunks
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Split audio into chunks and process each chunk
+            for i, chunk_start in enumerate(range(0, len(audio), chunk_length)):
+                try:
+                    # Extract chunk
+                    chunk = audio[chunk_start:chunk_start + chunk_length]
+                    chunk_filename = os.path.join(temp_dir, f"chunk{i}.wav")
+                    
+                    # Export chunk as WAV
+                    chunk.export(chunk_filename, format="wav")
+                    
+                    # Transcribe using OpenAI Whisper
+                    with open(chunk_filename, "rb") as audio_file:
+                        transcript = openai.Audio.transcribe(
+                            "whisper-1",
+                            audio_file
+                        )
+                    
+                    # Add segment info
+                    segment = {
+                        "startTime": chunk_start / 1000,  # Convert to seconds
+                        "endTime": (chunk_start + len(chunk)) / 1000,
+                        "sentence": transcript.text
+                    }
+                    transcript_segments.append(segment)
+                        
+                except Exception as e:
+                    print(f"Error processing chunk {i}: {str(e)}")
+                    continue
+        
+        # Clean up the downloaded audio file
+        try:
+            os.remove(audio_path)
+        except:
+            pass
+            
+        return transcript_segments
+
+    except Exception as e:
+        print(f"Error in transcribe_from_url: {str(e)}")
+        raise

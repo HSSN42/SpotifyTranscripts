@@ -2,18 +2,17 @@ import overview from "../images/overview.png";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { config } from "../config";
 
 export default function Home() {
-  // Debug logging for config values
-  console.log('Config values:', {
-    spotifyClientId: config.spotifyClientId,
-    frontendUrl: config.frontendUrl,
-    backendUrl: config.backendUrl
+  // Debug logging for environment variables
+  console.log('Environment Variables in Home:', {
+    NODE_ENV: process.env.NODE_ENV,
+    REACT_APP_SPOTIFY_CLIENT_ID: process.env.REACT_APP_SPOTIFY_CLIENT_ID,
+    REACT_APP_FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL
   });
 
-  const CLIENT_ID = config.spotifyClientId;
-  const REDIRECT_URI = encodeURIComponent(`${config.frontendUrl}/discover`);
+  const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID;
+  const REDIRECT_URI = encodeURIComponent(`${process.env.REACT_APP_FRONTEND_URL}/discover`);
   const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
   const RESPONSE_TYPE = "token";
   const SCOPE = "streaming user-read-email user-read-private user-library-read user-library-modify user-read-playback-state user-modify-playback-state";
@@ -36,6 +35,8 @@ export default function Home() {
     
     console.log("Starting Spotify auth...");
     console.log("Client ID:", CLIENT_ID);
+    console.log("Environment:", process.env.NODE_ENV);
+    console.log("Frontend URL:", process.env.REACT_APP_FRONTEND_URL);
     
     const authUrl = `${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${RESPONSE_TYPE}&scope=${encodeURIComponent(SCOPE)}&show_dialog=true`;
     

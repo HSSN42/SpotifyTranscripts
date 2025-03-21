@@ -1,10 +1,42 @@
 import overview from "../images/overview.png";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { config } from "../config";
 
 export default function Home() {
-  const CLIENT_ID = process.env.REACT_APP_SPOTFY_CLIENT_ID;
-  const REDIRECT_URI = "http://localhost:3000/discover";
+  const CLIENT_ID = config.spotifyClientId;
+  const REDIRECT_URI = encodeURIComponent(`${config.frontendUrl}/discover`);
   const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
   const RESPONSE_TYPE = "token";
+  const SCOPE = "streaming user-read-email user-read-private user-library-read user-library-modify user-read-playback-state user-modify-playback-state";
+  
+  const token = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log("Current URL:", window.location.href);
+    console.log("Current hash:", window.location.hash);
+    
+    if (token) {
+      console.log("Already authenticated, redirecting to discover...");
+      navigate("/discover");
+    }
+  }, [token, navigate]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    
+    console.log("Starting Spotify auth...");
+    console.log("Client ID:", CLIENT_ID);
+    
+    const authUrl = `${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${RESPONSE_TYPE}&scope=${encodeURIComponent(SCOPE)}&show_dialog=true`;
+    
+    console.log("Redirect URI:", decodeURIComponent(REDIRECT_URI));
+    console.log("Full auth URL:", authUrl);
+    
+    window.location.href = authUrl;
+  };
 
   return (
     <div className="text-white bg-spotifyDarkGray h-screen">
@@ -15,20 +47,19 @@ export default function Home() {
             A proof of concept for an improved podcast experience powered by AI.
           </p>
 
-          <a
+          <button
+            onClick={handleLogin}
             className="bg-spotifyLightGreen hover:bg-spotifyDarkGreen text-spotifyDarkGray px-6 py-4 rounded-full cursor-pointer text-center text-sm font-semibold uppercase tracking-wider"
-            href={`${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${RESPONSE_TYPE}`}
           >
             Log in with Spotify
-          </a>
+          </button>
         </div>
 
         <div className="col-span-3">
           <img
             src={overview}
-            autoPlay
-            muted
             className="rounded-lg shadow border-2 border-black"
+            alt="Overview"
           />
         </div>
       </div>

@@ -13,10 +13,9 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <Routes>
-      <Route path="/" exact element={<Home />} />
+      <Route path="/" element={<Home />} />
       <Route
         path="/discover"
-        exact
         element={
           <ProtectedRoute>
             <Discover />
@@ -25,7 +24,6 @@ function App() {
       />
       <Route
         path="/episode"
-        exact
         element={
           <ProtectedRoute>
             <Episode />

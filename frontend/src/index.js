@@ -3,13 +3,13 @@ import ReactDOM from "react-dom";
 import "./styles/tailwind.css";
 import * as serviceWorker from "./serviceWorker";
 import App from "./App.js";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 
 ReactDOM.render(
   <React.StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <App />
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>,
   document.getElementById("root")
 );

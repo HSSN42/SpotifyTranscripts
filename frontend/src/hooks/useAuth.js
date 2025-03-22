@@ -7,6 +7,9 @@ export function useAuth() {
   const location = useLocation();
 
   useEffect(() => {
+    // Ensure we're in a browser environment
+    if (typeof window === 'undefined') return;
+
     const processAuth = () => {
       const hash = window.location.hash;
       let storedToken = window.localStorage.getItem("token");
@@ -35,7 +38,10 @@ export function useAuth() {
             
             // Only navigate if we're not already on the target path
             if (currentPath !== "/discover") {
-              navigate("/discover", { replace: true });
+              console.log("Navigating to /discover");
+              setTimeout(() => {
+                navigate("/discover", { replace: true });
+              }, 0);
             }
             return;
           } else {
@@ -53,7 +59,10 @@ export function useAuth() {
         
         // Only redirect to discover if we're on the home page
         if (location.pathname === "/") {
-          navigate("/discover", { replace: true });
+          console.log("Navigating from home to /discover");
+          setTimeout(() => {
+            navigate("/discover", { replace: true });
+          }, 0);
         }
       } else {
         console.log("No token available");
@@ -61,7 +70,8 @@ export function useAuth() {
       }
     };
 
-    processAuth();
+    // Wrap in setTimeout to ensure router is ready
+    setTimeout(processAuth, 0);
   }, [navigate, location.pathname]);
 
   // Provide a function to clear the token

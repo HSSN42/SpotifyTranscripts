@@ -39,9 +39,7 @@ export function useAuth() {
             // Only navigate if we're not already on the target path
             if (currentPath !== "/discover") {
               console.log("Navigating to /discover");
-              setTimeout(() => {
-                navigate("/discover", { replace: true });
-              }, 0);
+              navigate("/discover", { replace: true });
             }
             return;
           } else {
@@ -56,22 +54,13 @@ export function useAuth() {
       if (storedToken) {
         console.log("Using stored token");
         setToken(storedToken);
-        
-        // Only redirect to discover if we're on the home page
-        if (location.pathname === "/") {
-          console.log("Navigating from home to /discover");
-          setTimeout(() => {
-            navigate("/discover", { replace: true });
-          }, 0);
-        }
       } else {
         console.log("No token available");
         setToken("");
       }
     };
 
-    // Wrap in setTimeout to ensure router is ready
-    setTimeout(processAuth, 0);
+    processAuth();
   }, [navigate, location.pathname]);
 
   // Provide a function to clear the token
